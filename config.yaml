@@ -1,0 +1,84 @@
+# oss-radar configuration. Config is data, not code: gate thresholds, watchlist,
+# queries and claim regexes all live here so tuning never needs a rebuild.
+
+watchlist:
+  # Newest-updated issues first; max_pages * 100 issues per repo per scan.
+  max_pages: 2
+  repos:
+    - {name: jaegertracing/jaeger, weight: 1.0}
+    - {name: open-telemetry/opentelemetry-collector, weight: 1.0}
+    - {name: open-telemetry/opentelemetry-collector-contrib, weight: 1.0}
+    - {name: open-telemetry/opentelemetry-go, weight: 0.6}
+    - {name: coredns/coredns, weight: 1.0}
+    - {name: miekg/dns, weight: 0.6}
+    - {name: unikraft/kraftkit, weight: 0.6}
+    - {name: prometheus/prometheus, weight: 0.6}
+
+search:
+  per_page: 50
+  updated_within_days: 30
+  queries:
+    - 'is:issue state:open label:"help wanted" language:go stars:>500 archived:false'
+    - 'is:issue state:open label:"good first issue" language:go stars:>500 archived:false'
+
+gate:
+  positive_labels:
+    - help wanted
+    - good first issue
+    - kind/bug
+  disqualifying_labels:
+    - wontfix
+    - duplicate
+    - invalid
+    - question
+    - tracking
+    - epic
+    - meta
+    - needs-design
+  skill_keywords:
+    - dns
+    - grpc
+    - otel
+    - tracing
+    - storage
+    - tls
+    - udp
+    - cache
+    - goroutine
+    - race
+    - memory leak
+    - timeout
+    - retry
+    - metrics
+    - sampling
+    - compression
+    - parser
+  quarantine:
+    age_days: 180
+    max_comments: 15
+  # All patterns are compiled case-insensitive. A hard claim match REJECTS the item,
+  # an ambiguous match QUARANTINES it for human review.
+  claim_patterns:
+    - i('|’)?ll take
+    - i will take
+    - i('|’)?m working on (this|it)
+    - i am working on (this|it)
+    - i('|’)?ll work on (this|it)
+    - started working on (this|it)
+    - (^|\s)/assign
+    - can i (take|work on|try|pick up|have)
+    - assign (this |it |the issue )?to me
+    - assign me
+    - assigned to me
+    - i('|’)?d like to (take|work on|try|pick up)
+    - i want to (take|work on|try|pick up)
+  ambiguous_patterns:
+    - i can help
+    - happy to help
+    - i('|’)?m interested
+    - i am interested
+    - interested in (this|taking|working|helping|contributing)
+    - (^|\s)\+1\b
+    - me too
+    - anyone (else )?working on (this|it)
+    - is (this|it) (still )?(available|open|up for grabs)
