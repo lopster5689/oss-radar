@@ -17,9 +17,13 @@ watchlist:
 search:
   per_page: 50
   updated_within_days: 30
+  # The stars:>N qualifier is broken on the issues search backend (returns a tiny,
+  # wrong result set when combined with language:), so the star floor is enforced
+  # source-side against live repo metadata instead of in the query.
+  min_stars: 500
   queries:
-    - 'is:issue state:open label:"help wanted" language:go stars:>500 archived:false'
-    - 'is:issue state:open label:"good first issue" language:go stars:>500 archived:false'
+    - 'is:issue state:open label:"help wanted" language:go archived:false'
+    - 'is:issue state:open label:"good first issue" language:go archived:false'
 
 gate:
   positive_labels:

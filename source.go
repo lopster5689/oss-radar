@@ -76,6 +76,13 @@ func (searchSource) Name() string { return "search" }
 
 func (searchSource) Discover(c *Client, p *Pool, cfg *Config, ingest func(*Item) error) error {
 	since := time.Now().UTC().AddDate(0, 0, -cfg.Search.UpdatedWithinDays).Format("2006-01-02")
+	// The stars:>N search qualifier is broken on the issues search backend, so the
+	// star floor is enforced here from repo metadata, cached per run.
+	type repoMeta struct {
+		Stars    int  `json:"stargazers_count"`
+		Archived bool `json:"archived"`
+	}
+	metas := map[string]repoMeta{}
 	for _, q := range cfg.Search.Queries {
 		u := fmt.Sprintf("/search/issues?advanced_search=true&sort=updated&order=desc&per_page=%d&q=%s",
 			cfg.Search.PerPage, url.QueryEscape(q+" updated:>="+since))
@@ -90,8 +97,17 @@ func (searchSource) Discover(c *Client, p *Pool, cfg *Config, ingest func(*Item)
 				continue
 			}
 			repo := strings.TrimPrefix(gi.RepositoryURL, apiBase+"/repos/")
-			// Queries carry archived:false, so no per-repo archived call is needed.
-			it := gi.toItem(repo, "search", false)
+			meta, ok := metas[repo]
+			if !ok {
+				if _, err := c.get("/repos/"+repo, &meta); err != nil {
+					return err
+				}
+				metas[repo] = meta
+			}
+			if meta.Stars < cfg.Search.MinStars {
+				continue
+			}
+			it := gi.toItem(repo, "search", meta.Archived)
 			if err := ingest(&it); err != nil {
 				return err
 			}

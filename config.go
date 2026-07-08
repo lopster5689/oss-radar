@@ -18,6 +18,7 @@ type Config struct {
 	Search struct {
 		PerPage           int      `yaml:"per_page"`
 		UpdatedWithinDays int      `yaml:"updated_within_days"`
+		MinStars          int      `yaml:"min_stars"`
 		Queries           []string `yaml:"queries"`
 	} `yaml:"search"`
 	Gate struct {
@@ -58,6 +59,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if c.Search.UpdatedWithinDays <= 0 {
 		c.Search.UpdatedWithinDays = 30
+	}
+	if c.Search.MinStars <= 0 {
+		c.Search.MinStars = 500
 	}
 	if c.Gate.Quarantine.AgeDays <= 0 || c.Gate.Quarantine.MaxComments <= 0 {
 		return nil, errors.New("config: gate.quarantine thresholds must be set")
