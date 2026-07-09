@@ -17,6 +17,7 @@ const usageText = `usage: radar [-config path] [-db path] <command> [args]
 
 commands:
   scan [--source watchlist|search|all]   discover, gate and ingest issues
+  serve [--addr 127.0.0.1:7333] [--tick 0]  web dashboard (localhost cockpit)
   status                                 pool totals, per-repo eligible, staleness
   review [--limit N]                     eligible + quarantine items, newest first
   shortlist <owner/repo#N>               set disposition SHORTLISTED
@@ -46,6 +47,8 @@ func run() error {
 	switch cmd {
 	case "scan":
 		return cmdScan(*cfgPath, *dbPath, rest)
+	case "serve":
+		return cmdServe(*cfgPath, *dbPath, rest)
 	case "status":
 		return cmdStatus(*dbPath)
 	case "review":
@@ -95,7 +98,7 @@ func cmdScan(cfgPath, dbPath string, args []string) error {
 	}
 	dir := filepath.Dir(dbPath)
 	for _, s := range sources {
-		if err := runScan(p, c, cfg, s, dir); err != nil {
+		if _, err := runScan(p, c, cfg, s, dir); err != nil {
 			return err
 		}
 	}

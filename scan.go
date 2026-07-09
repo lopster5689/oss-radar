@@ -65,11 +65,11 @@ func (rs *runStats) summary() string {
 		rs.Source, rs.Scanned, rs.New, rs.Updated, rs.Eligible, rs.Quarantine, rs.Rejected, rs.APICalls, rs.DurationMs)
 }
 
-func runScan(p *Pool, c *Client, cfg *Config, src Source, dir string) error {
+func runScan(p *Pool, c *Client, cfg *Config, src Source, dir string) (*runStats, error) {
 	start := time.Now().UTC()
 	gc, err := cfg.GateConfig(start)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	rs := &runStats{StartedAt: start.Format(timeFmt), Source: src.Name(), PerRepo: map[string]*repoTally{}}
 	callsBefore := c.Calls()
@@ -78,22 +78,22 @@ func runScan(p *Pool, c *Client, cfg *Config, src Source, dir string) error {
 		return processItem(p, c, gc, it, rs)
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	rs.APICalls = c.Calls() - callsBefore
 	rs.DurationMs = time.Since(start).Milliseconds()
 	if err := p.RecordRun(rs); err != nil {
-		return err
+		return nil, err
 	}
 	if err := appendRunsJSONL(dir, rs); err != nil {
-		return err
+		return nil, err
 	}
 	if err := appendAnalysisLog(dir, rs); err != nil {
-		return err
+		return nil, err
 	}
 	fmt.Println(rs.summary())
-	return nil
+	return rs, nil
 }
 
 // processItem gates cheap fields first, deep-fetches only survivors, re-gates,

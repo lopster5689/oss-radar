@@ -146,6 +146,17 @@ func (p *Pool) AddActivity(itemKey, kind, detail, occurredAt string) error {
 	return err
 }
 
+// AddOperatorActivity appends an operator event (DISPOSITION, NOTES). Unlike
+// AddActivity, the dedupe hash includes the full timestamp: the same transition
+// can legitimately repeat within a day (shortlist, back to NEW, shortlist again).
+// Double-submits are absorbed upstream by a no-change check, not by this hash.
+func (p *Pool) AddOperatorActivity(itemKey, kind, detail, occurredAt string) error {
+	sum := sha256.Sum256([]byte(itemKey + "|" + kind + "|" + detail + "|" + occurredAt))
+	_, err := p.db.Exec(`INSERT OR IGNORE INTO activities (item_key, kind, detail, occurred_at, dedupe_hash)
+		VALUES (?,?,?,?,?)`, itemKey, kind, detail, occurredAt, hex.EncodeToString(sum[:]))
+	return err
+}
+
 func (p *Pool) UpsertRepo(name string, weight float64, archived bool) error {
 	_, err := p.db.Exec(`INSERT INTO repos (name, weight, archived) VALUES (?,?,?)
 		ON CONFLICT(name) DO UPDATE SET weight=excluded.weight, archived=excluded.archived`,
@@ -205,9 +216,64 @@ func (p *Pool) Get(key string) (ItemRow, error) {
 // Review returns eligible and quarantined items not dropped by the operator,
 // newest issue activity first.
 func (p *Pool) Review(limit int) ([]ItemRow, error) {
-	rows, err := p.db.Query(`SELECT `+itemCols+` FROM items
+	return collectItems(p.db.Query(`SELECT `+itemCols+` FROM items
 		WHERE gate_status IN ('ELIGIBLE','QUARANTINE') AND disposition <> 'DROPPED'
-		ORDER BY updated_at DESC LIMIT ?`, limit)
+		ORDER BY updated_at DESC LIMIT ?`, limit))
+}
+
+// ReviewQueue is the dashboard variant: NEW items awaiting an operator call,
+// eligible before quarantine, newest issue activity first within each. All
+// filters are optional; status is "eligible", "quarantine" or anything else
+// for both.
+func (p *Pool) ReviewQueue(status, repo, q string) ([]ItemRow, error) {
+	where := `disposition = 'NEW'`
+	var args []any
+	switch status {
+	case "eligible":
+		where += ` AND gate_status = 'ELIGIBLE'`
+	case "quarantine":
+		where += ` AND gate_status = 'QUARANTINE'`
+	default:
+		where += ` AND gate_status IN ('ELIGIBLE','QUARANTINE')`
+	}
+	if repo != "" {
+		where += ` AND repo = ?`
+		args = append(args, repo)
+	}
+	if q != "" {
+		where += ` AND title LIKE ? ESCAPE '\'`
+		args = append(args, "%"+likeEscape(q)+"%")
+	}
+	return collectItems(p.db.Query(`SELECT `+itemCols+` FROM items WHERE `+where+`
+		ORDER BY CASE gate_status WHEN 'ELIGIBLE' THEN 0 ELSE 1 END, updated_at DESC`, args...))
+}
+
+// ReviewRepos lists the repos currently represented in the review queue, for
+// the filter dropdown.
+func (p *Pool) ReviewRepos() ([]string, error) {
+	rows, err := p.db.Query(`SELECT DISTINCT repo FROM items
+		WHERE disposition = 'NEW' AND gate_status IN ('ELIGIBLE','QUARANTINE') ORDER BY repo`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var r string
+		if err := rows.Scan(&r); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (p *Pool) ByDisposition(disp string, limit, offset int) ([]ItemRow, error) {
+	return collectItems(p.db.Query(`SELECT `+itemCols+` FROM items WHERE disposition = ?
+		ORDER BY updated_at DESC LIMIT ? OFFSET ?`, disp, limit, offset))
+}
+
+func collectItems(rows *sql.Rows, err error) ([]ItemRow, error) {
 	if err != nil {
 		return nil, err
 	}
@@ -223,8 +289,24 @@ func (p *Pool) Review(limit int) ([]ItemRow, error) {
 	return out, rows.Err()
 }
 
+// likeEscape neutralizes LIKE metacharacters in operator-typed search text.
+func likeEscape(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+}
+
 func (p *Pool) SetDisposition(key, disp string) error {
 	res, err := p.db.Exec(`UPDATE items SET disposition = ? WHERE dedupe_key = ?`, disp, key)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (p *Pool) SetNotes(key, notes string) error {
+	res, err := p.db.Exec(`UPDATE items SET notes = ? WHERE dedupe_key = ?`, notes, key)
 	if err != nil {
 		return err
 	}
@@ -305,6 +387,85 @@ func (p *Pool) staleCount(cutoff string) (int, error) {
 	var n int
 	err := p.db.QueryRow(`SELECT COUNT(*) FROM items
 		WHERE gate_status IN ('ELIGIBLE','QUARANTINE') AND verified_at < ?`, cutoff).Scan(&n)
+	return n, err
+}
+
+type repoEligible struct {
+	Repo   string
+	Weight float64
+	N      int
+}
+
+// eligibleByRepoWeighted joins eligible counts with the configured repo weight;
+// search-discovered repos outside the watchlist show weight 0.
+func (p *Pool) eligibleByRepoWeighted() ([]repoEligible, error) {
+	rows, err := p.db.Query(`SELECT i.repo, COALESCE(r.weight, 0), COUNT(*)
+		FROM items i LEFT JOIN repos r ON r.name = i.repo
+		WHERE i.gate_status = 'ELIGIBLE' AND i.disposition <> 'DROPPED'
+		GROUP BY i.repo ORDER BY COUNT(*) DESC, i.repo`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []repoEligible
+	for rows.Next() {
+		var re repoEligible
+		if err := rows.Scan(&re.Repo, &re.Weight, &re.N); err != nil {
+			return nil, err
+		}
+		out = append(out, re)
+	}
+	return out, rows.Err()
+}
+
+type runRow struct {
+	StartedAt, Source                            string
+	Scanned, New, Eligible, Quarantine, Rejected int
+	APICalls                                     int
+	DurationMs                                   int64
+}
+
+func (p *Pool) recentRuns(limit int) ([]runRow, error) {
+	rows, err := p.db.Query(`SELECT started_at, source, scanned, new_items, eligible, quarantine, rejected, api_calls, duration_ms
+		FROM runs ORDER BY id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []runRow
+	for rows.Next() {
+		var r runRow
+		if err := rows.Scan(&r.StartedAt, &r.Source, &r.Scanned, &r.New, &r.Eligible,
+			&r.Quarantine, &r.Rejected, &r.APICalls, &r.DurationMs); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (p *Pool) lastRunPerSource() (map[string]string, error) {
+	rows, err := p.db.Query(`SELECT source, MAX(started_at) FROM runs GROUP BY source`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var src, at string
+		if err := rows.Scan(&src, &at); err != nil {
+			return nil, err
+		}
+		out[src] = at
+	}
+	return out, rows.Err()
+}
+
+// apiCallsSince sums run API spend; cutoff compares lexicographically against
+// RFC3339 started_at, so a bare date means "since midnight UTC".
+func (p *Pool) apiCallsSince(cutoff string) (int, error) {
+	var n int
+	err := p.db.QueryRow(`SELECT COALESCE(SUM(api_calls), 0) FROM runs WHERE started_at >= ?`, cutoff).Scan(&n)
 	return n, err
 }
 
