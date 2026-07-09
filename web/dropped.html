@@ -1,0 +1,27 @@
+{{define "content"}}
+<p class="muted">{{.Total}} dropped, page {{.Page}} of {{.Pages}}</p>
+<table class="items">
+<tr><th>age</th><th>repo</th><th>title</th><th>gate</th><th></th></tr>
+{{range .Items}}
+<tr>
+<td class="mono">{{ageDays .CreatedAt}}</td>
+<td class="mono">{{.Repo}}</td>
+<td><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a></td>
+<td><span class="badge b-{{.GateStatus}}">{{.GateStatus}}</span></td>
+<td class="actions">
+<form method="post" action="{{itemPath .DedupeKey "disposition"}}">
+<input type="hidden" name="back" value="/dropped?page={{$.Page}}">
+<input type="hidden" name="disposition" value="NEW">
+<button type="submit">Undrop</button>
+</form>
+</td>
+</tr>
+{{else}}
+<tr><td colspan="5" class="muted">nothing dropped</td></tr>
+{{end}}
+</table>
+<p class="pager">
+{{if gt .Page 1}}<a href="/dropped?page={{sub .Page 1}}">prev</a>{{end}}
+{{if lt .Page .Pages}}<a href="/dropped?page={{add .Page 1}}">next</a>{{end}}
+</p>
+{{end}}

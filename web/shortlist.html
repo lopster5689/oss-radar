@@ -1,0 +1,31 @@
+{{define "content"}}
+{{range .Items}}
+<div class="card">
+<div class="cardhead">
+<span class="mono key">{{.DedupeKey}}</span>
+<span class="badge b-{{.GateStatus}}">{{.GateStatus}}</span>
+<a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>
+</div>
+<div class="muted small">{{.GateReason}}{{if .FitHits}} | fits: {{.FitHits}}{{end}} | age {{ageDays .CreatedAt}} | verified {{fmtTime .VerifiedAt}}</div>
+<form class="notes" method="post" action="{{itemPath .DedupeKey "notes"}}">
+<input type="hidden" name="back" value="/shortlist">
+<textarea name="notes" rows="3" placeholder="notes for the weekly sitting">{{.Notes}}</textarea>
+<button type="submit">Save notes</button>
+</form>
+<div class="actions">
+<form method="post" action="{{itemPath .DedupeKey "disposition"}}">
+<input type="hidden" name="back" value="/shortlist">
+<input type="hidden" name="disposition" value="NEW">
+<button type="submit">Back to NEW</button>
+</form>
+<form method="post" action="{{itemPath .DedupeKey "disposition"}}">
+<input type="hidden" name="back" value="/shortlist">
+<input type="hidden" name="disposition" value="DROPPED">
+<button type="submit" class="danger">Drop</button>
+</form>
+</div>
+</div>
+{{else}}
+<p class="muted">shortlist is empty; pick from <a href="/review">review</a></p>
+{{end}}
+{{end}}

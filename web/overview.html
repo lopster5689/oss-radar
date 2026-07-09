@@ -1,0 +1,93 @@
+{{define "content"}}
+<section class="tiles">
+<div class="tile"><span class="label">pool</span><span class="num" data-sum="pool">{{.Total}}</span></div>
+<div class="tile"><span class="label">eligible</span><span class="num c-green" data-sum="eligible">{{index .Gate "ELIGIBLE"}}</span></div>
+<div class="tile"><span class="label">quarantine</span><span class="num c-amber" data-sum="quarantine">{{index .Gate "QUARANTINE"}}</span></div>
+<div class="tile"><span class="label">rejected</span><span class="num c-gray" data-sum="rejected">{{index .Gate "REJECTED"}}</span></div>
+<div class="tile{{if gt .Stale 0}} bad{{end}}" id="stale-tile"><span class="label">stale &gt;7d</span><span class="num" data-sum="stale">{{.Stale}}</span></div>
+</section>
+<section class="tiles">
+<div class="tile"><span class="label">new</span><span class="num" data-sum="new">{{index .Disp "NEW"}}</span></div>
+<div class="tile"><span class="label">shortlisted</span><span class="num c-accent" data-sum="shortlisted">{{index .Disp "SHORTLISTED"}}</span></div>
+<div class="tile"><span class="label">dropped</span><span class="num c-gray" data-sum="dropped">{{index .Disp "DROPPED"}}</span></div>
+<div class="tile"><span class="label">api calls today</span><span class="num" data-sum="api_calls_today">{{.APICallsToday}}</span></div>
+</section>
+
+<section class="scanbar">
+<form id="scan-form" method="post" action="/scan">
+<button id="scan-btn" type="submit"{{if .Scanning}} disabled{{end}}>{{if .Scanning}}scanning...{{else}}Scan now{{end}}</button>
+</form>
+<span id="scan-result" class="muted">{{if .LastScan}}{{.LastScan}}{{else}}no scan since server start{{end}}</span>
+</section>
+
+<div class="cols">
+<section>
+<h2>eligible by repo</h2>
+<table>
+<tr><th>repo</th><th class="r">weight</th><th class="r">eligible</th></tr>
+{{range .EligibleRepos}}
+<tr><td class="mono">{{.Repo}}</td><td class="mono r">{{printf "%.1f" .Weight}}</td><td class="mono r">{{.N}}</td></tr>
+{{else}}
+<tr><td colspan="3" class="muted">none</td></tr>
+{{end}}
+</table>
+</section>
+
+<section>
+<h2>last scan per source</h2>
+<table>
+<tr><th>source</th><th>last run (utc)</th></tr>
+{{range $src, $at := .LastBySource}}
+<tr><td class="mono">{{$src}}</td><td class="mono">{{fmtTime $at}}</td></tr>
+{{else}}
+<tr><td colspan="2" class="muted">no runs yet</td></tr>
+{{end}}
+</table>
+</section>
+</div>
+
+<section>
+<h2>recent runs</h2>
+<table>
+<tr><th>started (utc)</th><th>source</th><th class="r">scanned</th><th class="r">new</th><th class="r">eligible</th><th class="r">quarantine</th><th class="r">rejected</th><th class="r">api</th><th class="r">duration</th></tr>
+{{range .Runs}}
+<tr>
+<td class="mono">{{fmtTime .StartedAt}}</td>
+<td class="mono">{{.Source}}</td>
+<td class="mono r">{{.Scanned}}</td>
+<td class="mono r">{{.New}}</td>
+<td class="mono r">{{.Eligible}}</td>
+<td class="mono r">{{.Quarantine}}</td>
+<td class="mono r">{{.Rejected}}</td>
+<td class="mono r">{{.APICalls}}</td>
+<td class="mono r">{{fmtDur .DurationMs}}</td>
+</tr>
+{{else}}
+<tr><td colspan="9" class="muted">no runs yet</td></tr>
+{{end}}
+</table>
+</section>
+
+<script>
+(function () {
+	var btn = document.getElementById('scan-btn');
+	document.getElementById('scan-form').addEventListener('submit', function () {
+		btn.disabled = true;
+		btn.textContent = 'scanning...';
+	});
+	function tick() {
+		fetch('/api/summary').then(function (r) { return r.json(); }).then(function (s) {
+			document.querySelectorAll('[data-sum]').forEach(function (el) {
+				var k = el.getAttribute('data-sum');
+				if (s[k] !== undefined) el.textContent = s[k];
+			});
+			btn.disabled = s.scanning;
+			btn.textContent = s.scanning ? 'scanning...' : 'Scan now';
+			if (s.last_scan) document.getElementById('scan-result').textContent = s.last_scan;
+			document.getElementById('stale-tile').classList.toggle('bad', s.stale > 0);
+		}).catch(function () {});
+	}
+	setInterval(tick, 30000);
+})();
+</script>
+{{end}}

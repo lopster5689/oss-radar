@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} | radar</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+<span class="brand">oss-radar</span>
+<nav>
+<a href="/"{{if eq .Active "overview"}} class="on"{{end}}>overview</a>
+<a href="/review"{{if eq .Active "review"}} class="on"{{end}}>review</a>
+<a href="/shortlist"{{if eq .Active "shortlist"}} class="on"{{end}}>shortlist</a>
+<a href="/dropped"{{if eq .Active "dropped"}} class="on"{{end}}>dropped</a>
+</nav>
+</header>
+<main>
+{{template "content" .}}
+</main>
+</body>
+</html>

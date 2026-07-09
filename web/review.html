@@ -1,0 +1,43 @@
+{{define "content"}}
+<form class="filters" method="get" action="/review">
+<select name="status">
+<option value="all"{{if eq .Status "all"}} selected{{end}}>eligible + quarantine</option>
+<option value="eligible"{{if eq .Status "eligible"}} selected{{end}}>eligible</option>
+<option value="quarantine"{{if eq .Status "quarantine"}} selected{{end}}>quarantine</option>
+</select>
+<select name="repo">
+<option value="">all repos</option>
+{{range .Repos}}<option value="{{.}}"{{if eq . $.Repo}} selected{{end}}>{{.}}</option>{{end}}
+</select>
+<input type="text" name="q" value="{{.Q}}" placeholder="title search">
+<button type="submit">filter</button>
+</form>
+
+<table class="items">
+<tr><th>age</th><th>repo</th><th>title</th><th>gate</th><th>reason</th><th>fits</th><th></th></tr>
+{{range .Items}}
+<tr>
+<td class="mono">{{ageDays .CreatedAt}}</td>
+<td class="mono">{{.Repo}}</td>
+<td><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a></td>
+<td><span class="badge b-{{.GateStatus}}">{{.GateStatus}}</span></td>
+<td class="muted small">{{.GateReason}}</td>
+<td class="mono small">{{.FitHits}}</td>
+<td class="actions">
+<form method="post" action="{{itemPath .DedupeKey "disposition"}}">
+<input type="hidden" name="back" value="{{$.Back}}">
+<input type="hidden" name="disposition" value="SHORTLISTED">
+<button type="submit">Shortlist</button>
+</form>
+<form method="post" action="{{itemPath .DedupeKey "disposition"}}">
+<input type="hidden" name="back" value="{{$.Back}}">
+<input type="hidden" name="disposition" value="DROPPED">
+<button type="submit" class="danger">Drop</button>
+</form>
+</td>
+</tr>
+{{else}}
+<tr><td colspan="7" class="muted">review queue is empty</td></tr>
+{{end}}
+</table>
+{{end}}

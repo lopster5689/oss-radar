@@ -1,0 +1,144 @@
+/* oss-radar cockpit. Near-black, one amber accent, dense, no decoration. */
+:root {
+	--bg: #0c0e0d;
+	--panel: #111413;
+	--line: #1d2321;
+	--text: #c6cfc9;
+	--muted: #79847d;
+	--accent: #e0a458;
+	--green: #4bc98a;
+	--amber: #d9a13b;
+	--gray: #8b949e;
+	--red: #e5534b;
+	--mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+	background: var(--bg);
+	color: var(--text);
+	font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+header {
+	display: flex;
+	align-items: baseline;
+	gap: 24px;
+	padding: 10px 20px;
+	border-bottom: 1px solid var(--line);
+}
+.brand { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+nav { display: flex; gap: 16px; }
+nav a { color: var(--muted); text-decoration: none; font-family: var(--mono); font-size: 13px; }
+nav a:hover { color: var(--text); }
+nav a.on { color: var(--accent); }
+main { max-width: 1180px; margin: 0 auto; padding: 18px 20px 60px; }
+h2 {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--muted);
+	margin: 22px 0 6px;
+}
+a { color: var(--text); }
+a:hover { color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.r { text-align: right; }
+
+/* tiles */
+.tiles { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.tile {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	padding: 8px 14px 6px;
+	min-width: 118px;
+}
+.tile .label {
+	display: block;
+	font-size: 10px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+.tile .num {
+	font-family: var(--mono);
+	font-size: 26px;
+	font-variant-numeric: tabular-nums;
+}
+.tile.bad { border-color: var(--red); }
+.tile.bad .num { color: var(--red); }
+.c-green { color: var(--green); }
+.c-amber { color: var(--amber); }
+.c-gray { color: var(--gray); }
+.c-accent { color: var(--accent); }
+
+/* scan bar */
+.scanbar { display: flex; align-items: center; gap: 14px; margin: 16px 0 4px; }
+#scan-result { font-family: var(--mono); font-size: 12px; }
+
+/* tables */
+table { border-collapse: collapse; width: 100%; }
+th {
+	text-align: left;
+	font-size: 10px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--muted);
+	padding: 4px 10px 4px 0;
+	border-bottom: 1px solid var(--line);
+}
+th.r { text-align: right; }
+td { padding: 4px 10px 4px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+
+/* badges */
+.badge {
+	font-family: var(--mono);
+	font-size: 10px;
+	letter-spacing: 0.05em;
+	padding: 1px 6px;
+	border: 1px solid;
+	white-space: nowrap;
+}
+.b-ELIGIBLE { color: var(--green); border-color: var(--green); }
+.b-QUARANTINE { color: var(--amber); border-color: var(--amber); }
+.b-REJECTED { color: var(--gray); border-color: var(--gray); }
+.b-SHORTLISTED { color: var(--accent); border-color: var(--accent); }
+
+/* forms */
+button {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	color: var(--text);
+	font: 12px var(--mono);
+	padding: 3px 10px;
+	cursor: pointer;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button:disabled { color: var(--muted); border-color: var(--line); cursor: default; }
+button.danger:hover { border-color: var(--red); color: var(--red); }
+select, input[type=text], textarea {
+	background: var(--bg);
+	border: 1px solid var(--line);
+	color: var(--text);
+	font: 12px var(--mono);
+	padding: 3px 6px;
+}
+select:focus, input:focus, textarea:focus, button:focus { outline: 1px solid var(--accent); }
+.filters { display: flex; gap: 8px; margin: 12px 0; }
+.actions { white-space: nowrap; }
+.actions form { display: inline-block; margin-right: 4px; }
+
+/* shortlist cards */
+.card {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	padding: 10px 14px;
+	margin: 12px 0;
+}
+.cardhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cardhead .key { color: var(--accent); }
+.notes { margin: 8px 0 6px; display: flex; gap: 8px; align-items: flex-start; }
+.notes textarea { width: 70%; resize: vertical; }
+.pager { margin-top: 10px; display: flex; gap: 14px; font-family: var(--mono); }
