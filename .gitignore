@@ -4,3 +4,6 @@
 *.db-wal
 .env
 runs.jsonl
+radar.db*
+*.jsonl
+.claude/
